@@ -103,7 +103,7 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument(
       '--level_name', type=str,
-      default='prisoners_dilemma_in_the_matrix__repeated',
+      default='prisoners_dilemma_in_the_matrix__arena', 
       choices=environment_configs.keys(),
       help='Level name to load')
   parser.add_argument(

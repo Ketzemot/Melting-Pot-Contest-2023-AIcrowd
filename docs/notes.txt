@@ -1,0 +1,68 @@
+- good sites:
+https://github.com/ray-project/ray/blob/master/rllib/examples/centralized_critic.py#L88
+https://docs.ray.io/en/latest/rllib/rllib-models.html#customizing-preprocessors-and-models
+
+#rllib notes:
+
+- custom loss is called in rllib/plicy/torch_policv2.py in line 1373
+- algo loss is defined in policy file. -> e.g. for algo ppo -> loss is in ppo_torch_policy.py
+- total loss and ppo specifc losses are in ppo_torch_policy.py 
+- torch_policv2.py line 93:
+
+  # Create model.
+  if self.config.get("_enable_rl_module_api", False):
+      model = self.make_rl_module()  # -> this might be a way to implement more sofisticated communication
+
+      dist_class = None
+  else:
+      model, dist_class = self._init_model_and_dist_class() # -> this will call the ComplexInputNetwork and paremetrise it with run_configs defined in configs.py
+
+ComplexInputNetwork is selected due to complex obs space. -> 
+E.g. obs space for pd_arene:
+'COLLECTIVE_REWARD': Box(-inf, inf, (), float64)
+'INVENTORY': Box(-inf, inf, (2,), float64)
+'READY_TO_SHOOT': Box(-inf, inf, (), float64)
+'RGB': Box(0, 255, (11, 11, 3), uint8)
+->  needs special treetment for each obs component (that's also how they call it)
+
+
+- rllib/models/catalog.py
+in line 703:
+wrap with LSTM wrapper if use_lstm or wwap with AtentionWrappter if use_attention 
+around ModelCatalog._wrap_if_needed which will eventually call ComplexInputNetwork (which might be wrapped with lstm or attention on top).
+-> note the ComplexInputNetwork will only be used if the input is actually complex as mentioned above.
+
+- metrics: you can see the used and potentially added metric keys in rllib/policy/policy.py in line 1460
+in rllib/models/modelsv2.py the metric obs_flat is set and added to the metrics but only if restored is from class SampleBatch 
+if self.model_config.get("_disable_preprocessor_api"):
+    restored["obs_flat"] = input_dict["obs"]
+
+- num model paramters and optimizer update:
+can be seen in rllib/plicy/torch_policv2.py in line 1380:
+list(model.parameters()) -> num_params = sum([parm.numel() for parm in model.parameters()])
+the self._optimizer that updates later the modeel prams can also be found here. 
+
+#melting pot notes:
+- actual environment rewards are defined in: baselines/wrappers/meltingpot_wrapper.py 
+  rewards = {
+  agent_id: timestep.reward[index]
+  for index, agent_id in enumerate(self._ordered_agent_ids)
+  }
+
+- an alternative is meltingpot/utils/substrates/wrappers/collective_reward_wrapper.py line 47:
+  reward=input_timestep.reward,
+  discount=input_timestep.discount,
+  observation=[{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward),
+                **obs} for obs in input_timestep.observation])
+
+
+- changed in baselines/train/utils.py
+_IGNORE_KEYS = ['WORLD.RGB', 'INTERACTION_INVENTORIES', 'NUM_OTHERS_WHO_CLEANED_THIS_STEP'] 
+-> []
+
+in baselines/wrappers/downsamplesubstrate_wrapper.py changed to downsample world rgb for testing. 
+- return [{k: _downsample_multi_spec(v, self._scaled) if k in ('RGB', 'WORLD.RGB') else v for k, v in s.items()} # for testing
+and
+- return timestep._replace(
+    observation=[{k: utils.downsample_observation(v, scaled) if k in ('RGB', 'WORLD.RGB') else v for k, v in observation.items()
+    } for observation in timestep.observation])

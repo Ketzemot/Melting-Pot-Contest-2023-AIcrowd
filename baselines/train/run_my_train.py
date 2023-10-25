@@ -1,0 +1,216 @@
+import argparse
+import os
+# os.environ["CUBLAS_WORKSPACE_CONFIG"] = "8519680"
+
+import ray
+
+
+from typing import *
+from ray import air
+from ray import tune
+from baselines.models.centralized_critic import CentralizedCritic
+# from baselines.models.Transformer_model import TransformerModel
+from baselines.models.melting_pot_nn import MeltingPotNN
+from baselines.models.torch_cc_model import TorchCCModel
+from configs import get_experiment_config
+from ray.rllib.algorithms import ppo
+from ray.tune import registry
+from ray.air.integrations.wandb import WandbLoggerCallback
+from baselines.train import make_envs
+from ray.rllib.algorithms.apex_dqn import apex_dqn
+from ray.rllib.algorithms.impala import impala
+from ray.rllib.models import ModelCatalog
+
+def get_cli_args():
+  
+  parser = argparse.ArgumentParser(description="Training Script for Multi-Agent RL in Meltingpot")
+  
+  parser.add_argument(
+      "--num_workers",
+      type=int,
+      default=2,
+      help="Number of workers to use for sample collection. Setting it zero will use same worker for collection and model training.",
+  )
+  parser.add_argument(
+      "--num_gpus",
+      type=int,
+      default=0,
+      help="Number of GPUs to run on (can be a fraction)",
+  )
+  parser.add_argument(
+      "--local",
+      action="store_true",
+      help="If enabled, init ray in local mode.",
+  )
+  parser.add_argument(
+      "--no-tune",
+      action="store_true",
+      help="If enabled, no hyper-parameter tuning.",
+  )
+  parser.add_argument(
+        "--algo",
+        choices=["apex"],
+        default="apex",
+        help="Algorithm to train agents.",
+  )
+  parser.add_argument(
+        "--framework",
+        choices=["tf", "torch"],
+        default="torch",
+        help="The DL framework specifier (tf2 eager is not supported).",
+  )
+  parser.add_argument(
+      "--exp",
+      type=str,
+      choices = ['pd_arena','al_harvest','clean_up','territory_rooms'],
+      default="pd_arena",
+      help="Name of the substrate to run",
+  )
+  parser.add_argument(
+      "--seed",
+      type=int,
+      default=123,
+      help="Seed to run",
+  )
+  parser.add_argument(
+      "--results_dir",
+      type=str,
+      default="./results",
+      help="Name of the wandb group",
+  )
+  parser.add_argument(
+        "--logging",
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        default="INFO",
+        help="The level of training and data flow messages to print.",
+  )
+  
+  parser.add_argument(
+        "--wandb",
+        type=bool,
+        default=False,
+        help="Whether to use WanDB logging.",
+  )
+
+  parser.add_argument(
+        "--downsample",
+        type=bool,
+        default=True,
+        help="Whether to downsample substrates in MeltingPot. Defaults to 8.",
+  )
+
+  parser.add_argument(
+        "--as-test",
+        action="store_true",
+        help="Whether this script should be run as a test.",
+  )
+
+  args = parser.parse_args()
+  print("Running trails with the following arguments: ", args)
+  return args
+
+
+
+if __name__ == "__main__":
+
+  args = get_cli_args()
+
+  # Set up Ray. Use local mode for debugging. Ignore reinit error.
+  ray.init(local_mode=args.local, ignore_reinit_error=True)
+  # print(f" cuda available for torch: {torch.cuda.is_available()}")
+  # Register meltingpot environment
+  registry.register_env("meltingpot", make_envs.env_creator)
+
+  # register custom transformer model
+  # ModelCatalog.register_custom_model("transformer", TransformerModel)
+  ModelCatalog.register_custom_model("melting_pot_nn", MeltingPotNN)
+  ModelCatalog.register_custom_model("cc_model", TorchCCModel,)
+  
+  # Initialize default configurations for native RLlib algorithms
+  if args.algo == "apex":
+    trainer = "PPO"
+    default_config_ppo = ppo.PPOConfig()
+    # Apex
+    # trainer = "APEX"
+    default_config_apex = apex_dqn.ApexDQNConfig()
+    # Impala
+    # trainer = "IMPALA"
+    default_config_impala = impala.ImpalaConfig()
+    
+  else:
+     print('The selected option is not tested. You may encounter issues if you use the baseline \
+           policy configurations with non-tested algorithms')
+
+  # Fetch experiment configurations
+  configs_ppo, exp_config_ppo, tune_config_ppo = get_experiment_config(args, default_config_ppo)
+  # configs_apex, exp_config_apex, tune_config_apex = get_experiment_config(args, default_config_apex)
+  configs_impala, exp_config_impala, tune_config_impala = get_experiment_config(args, default_config_impala)
+
+  # mapping of algorightm configs
+  configs, exp_config, tune_config = configs_ppo, exp_config_ppo, tune_config_ppo 
+  # configs, exp_config, tune_config = configs_apex, exp_config_apex, tune_config_apex
+  # configs, exp_config, tune_config = configs_impala, exp_config_impala, tune_config_impala 
+
+  # configs, exp_config, tune_config = get_experiment_config(args, default_config_ppo)
+  # configs, exp_config, tune_config = get_experiment_config(args, default_config_apex)
+  # configs, exp_config, tune_config = get_experiment_config(args, default_config_impala)
+
+  # trainer = apex_dqn.ApexDQN(configs)
+  # Ensure GPU is available if set to True
+  if configs.num_gpus > 0:
+     import torch
+     if torch.cuda.is_available():
+        print("Using GPU device.")
+     else:
+        print("Either GPU is not available on this machine or not visible to this run. Training using CPU only.")
+        configs.num_gpus = 0
+
+
+  # Setup WanDB 
+  if "WANDB_API_KEY" in os.environ and args.wandb:
+    wandb_project = f'{args.exp}_{args.framework}'
+    wandb_group = "meltingpot"
+
+    # Set up Weights And Biases logging if API key is set in environment variable.
+    wdb_callbacks = [
+        WandbLoggerCallback(
+            project=wandb_project,
+            group=wandb_group,
+            api_key=os.environ["WANDB_API_KEY"],
+            log_config=True,
+        )
+    ]
+  else:
+    wdb_callbacks = []
+    print("WARNING! No wandb API key found, running without wandb!")
+
+
+  # Setup hyper-parameter optimization configs here
+  if not args.no_tune:
+    # NotImplementedError
+    tune_config = None
+  else:
+    tune_config = tune.TuneConfig(reuse_actors=False)
+
+  # Setup checkpointing configurations
+  # orig: 
+  # ckpt_config = air.CheckpointConfig(num_to_keep=exp_config['keep'], checkpoint_frequency=exp_config['freq'], 
+  #                                    checkpoint_at_end=exp_config['end'])
+  ckpt_config = air.CheckpointConfig(num_to_keep=exp_config['keep'], checkpoint_frequency=exp_config['freq'], 
+                                     checkpoint_at_end=exp_config['end'], checkpoint_score_attribute="episode_reward_max") # episode_reward_mean
+  # Run Trials
+  results = tune.Tuner(
+      CentralizedCritic, # trainer, CentralizedCritic
+      param_space=configs.to_dict(),
+      run_config=air.RunConfig(name = exp_config['name'], callbacks=wdb_callbacks, local_dir=exp_config['dir'], 
+                               stop=exp_config['stop'], checkpoint_config=ckpt_config, verbose=0),
+  ).fit()
+
+  best_result = results.get_best_result(metric="episode_reward_mean", mode="max")
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
+  print(best_result)
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
+  
+  ray.shutdown()
+

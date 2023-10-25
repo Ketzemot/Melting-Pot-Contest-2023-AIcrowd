@@ -1,0 +1,97 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        // "--exp=clean_up",
+        // "--num_gpus=1",
+        // "--num_workers=19",
+        // "--segment_nr=5",
+        // "--loop",
+      ],
+    },
+    {
+      "name": "Python: Current File with env",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        "--exp=clean_up",
+        "--num_gpus=1",
+        "--num_workers=19",
+        // "--segment_nr=5",
+        // "--loop",
+      ],
+    },
+    {
+      "name": "debug_ray",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        "--exp=clean_up",
+        "--num_gpus=1",
+        "--local",
+        // "--segment_nr=5",
+        // "--loop",
+      ],
+    },
+    {
+      "name": "evaluate.py",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/baselines/evaluation/evaluate.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        // "--num_gpus=1",
+        // "--local",
+        "--create_videos=1",
+        "--num_episodes=1",
+        // "--config_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/clean_up/PPO_meltingpot_ddffb_00000_0_2023-10-07_20-46-46",
+        // "--policies_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/clean_up/PPO_meltingpot_ddffb_00000_0_2023-10-07_20-46-46/checkpoint_000100/policies",
+        // pd_arena:
+        // "--config_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/pd_arena/PPO_meltingpot_3c830_00000_0_2023-10-12_22-59-29",
+        // "--policies_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/pd_arena/PPO_meltingpot_3c830_00000_0_2023-10-12_22-59-29/checkpoint_001640/policies",
+       
+        // clean_up rmax=90:
+        "--config_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/clean_up/IMPALA_meltingpot_8ffdf_00000_0_2023-10-14_23-56-43",
+        "--policies_dir=/home/ketzemot/Documents/sandboxes/fun/melting_pot_aicrowd/Melting-Pot-Contest-2023/results/torch/clean_up/IMPALA_meltingpot_8ffdf_00000_0_2023-10-14_23-56-43/checkpoint_002450/policies",
+
+       
+        // "--eval_on_scenario=True",
+        // "--scenario=clean_up_2",
+        // "--segment_nr=5",
+        // "--loop",
+      ],
+    },
+    {
+      "name": "human_player",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+      //   // "--num_gpus=1",
+      //   // "--local",
+        "--verbose=True",
+        // "--print_events=1",
+      ],
+    },
+
+  ]
+}

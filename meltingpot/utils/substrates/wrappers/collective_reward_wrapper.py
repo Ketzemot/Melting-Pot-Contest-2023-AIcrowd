@@ -20,10 +20,18 @@ import dm_env
 from meltingpot.utils.substrates.wrappers import observables
 import numpy as np
 
+# added by me:
+from ray.rllib.policy.sample_batch import SampleBatch
+
 T = TypeVar("T")
 
 _COLLECTIVE_REWARD_OBS = "COLLECTIVE_REWARD"
-
+# added by me:
+# "_" as prefix is needed so  spaces = OrderedDict(sorted(spaces.items())) in 
+# /home/ketzemot/miniconda3/envs/mpc_main/lib/python3.10/site-packages/gymnasium/spaces/dict.py  does 
+# move it to back so later in forward path I can simply update the dict if _FOCAL_AGENT is missing and add to the back
+# -> so the obs space does not change and  _FOCAL_AGENT is always at the same position in the obs space.
+_FOCAL_AGENT = "_FOCAL_AGENT" 
 
 class CollectiveRewardWrapper(observables.ObservableLab2dWrapper):
   """Wrapper that adds an observation of the sum of all players' rewards."""
@@ -46,9 +54,24 @@ class CollectiveRewardWrapper(observables.ObservableLab2dWrapper):
         step_type=input_timestep.step_type,
         reward=input_timestep.reward,
         discount=input_timestep.discount,
-        observation=[{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward),
-                      **obs} for obs in input_timestep.observation])
+        # orig:
+        # observation=[{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward),
+        #               **obs} for obs in input_timestep.observation])
+        # modified by me:
+        observation= [{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward),
+            **obs, _FOCAL_AGENT: 0} for i, obs in enumerate(input_timestep.observation)] 
+              )
+  
 
+        # observation= [{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward),
+        #     **obs, _FOCAL_AGENT: 0} for i, obs in enumerate(input_timestep.observation)] 
+        #       )
+    
+        # not needed: 
+        # observation= [{_COLLECTIVE_REWARD_OBS: np.sum(input_timestep.reward), SampleBatch.AGENT_INDEX: i,
+        #             **obs} for i, obs in enumerate(input_timestep.observation)]
+        #               )
+       
   def reset(self, *args, **kwargs) -> dm_env.TimeStep:
     """See base class."""
     timestep = super().reset()
@@ -66,4 +89,13 @@ class CollectiveRewardWrapper(observables.ObservableLab2dWrapper):
     for obs in observation_spec:
       obs[_COLLECTIVE_REWARD_OBS] = dm_env.specs.Array(
           shape=(), dtype=np.float64, name=_COLLECTIVE_REWARD_OBS)
+      # added by me: needed to identify focal agent in forward path since it also produces the vf_out which needs to distinguish V(s) given the polyicy
+      obs[_FOCAL_AGENT] = dm_env.specs.Array(
+          shape=(), dtype=np.float64, name=_FOCAL_AGENT)
+      # not needed:
+      # added by me: (needed to identify in forward path of model which agents obs are forwarded. 
+      # since in the forward path we also calc vf_out it needs to be conditioned on the agents!)
+      # obs[SampleBatch.AGENT_INDEX] = dm_env.specs.Array(
+      #     shape=(), dtype=np.float64, name=SampleBatch.AGENT_INDEX)
+
     return observation_spec

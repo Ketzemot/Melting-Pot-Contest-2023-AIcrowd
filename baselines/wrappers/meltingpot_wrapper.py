@@ -45,10 +45,18 @@ class MeltingPotEnv(multi_agent_env.MultiAgentEnv):
     """See base class."""
     actions = [action_dict[agent_id] for agent_id in self._ordered_agent_ids]
     timestep = self._env.step(actions)
+    
+    # collective_reward = np.array(np.sum(timestep.reward))
+    collective_reward_avg = np.array(np.mean(timestep.reward))
     rewards = {
-        agent_id: timestep.reward[index]
-        for index, agent_id in enumerate(self._ordered_agent_ids)
+        agent_id: collective_reward_avg
+        for _, agent_id in enumerate(self._ordered_agent_ids)
     }
+    # orig:
+    # rewards = {
+    #     agent_id: timestep.reward[index]
+    #     for index, agent_id in enumerate(self._ordered_agent_ids)
+    # }
     done = {'__all__': timestep.last()}
     info = {}
 

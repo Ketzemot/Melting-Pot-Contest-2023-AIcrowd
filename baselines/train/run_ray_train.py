@@ -1,5 +1,7 @@
 import argparse
 import os
+# os.environ["CUBLAS_WORKSPACE_CONFIG"] = "8519680"
+
 import ray
 
 
@@ -11,6 +13,9 @@ from ray.rllib.algorithms import ppo
 from ray.tune import registry
 from ray.air.integrations.wandb import WandbLoggerCallback
 from baselines.train import make_envs
+
+
+# import torch
 
 def get_cli_args():
   
@@ -108,7 +113,7 @@ if __name__ == "__main__":
 
   # Set up Ray. Use local mode for debugging. Ignore reinit error.
   ray.init(local_mode=args.local, ignore_reinit_error=True)
-
+  # print(f" cuda available for torch: {torch.cuda.is_available()}")
   # Register meltingpot environment
   registry.register_env("meltingpot", make_envs.env_creator)
 
@@ -173,7 +178,10 @@ if __name__ == "__main__":
   ).fit()
 
   best_result = results.get_best_result(metric="episode_reward_mean", mode="max")
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
   print(best_result)
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
+  # print(f"episode_reward_mean: {best_result.metrics_dataframe.episode_reward_mean}")
   
   ray.shutdown()
 

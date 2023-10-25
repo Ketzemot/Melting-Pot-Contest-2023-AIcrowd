@@ -10,7 +10,7 @@ from gymnasium import spaces
 
 PLAYER_STR_FORMAT = 'player_{index}'
 _IGNORE_KEYS = ['WORLD.RGB', 'INTERACTION_INVENTORIES', 'NUM_OTHERS_WHO_CLEANED_THIS_STEP']
-
+# _IGNORE_KEYS = []
 
 def downsample_observation(array: np.ndarray, scaled) -> np.ndarray:
     """Downsample image component of the observation.
@@ -21,9 +21,13 @@ def downsample_observation(array: np.ndarray, scaled) -> np.ndarray:
     Returns:
       ndarray: downsampled observation  
     """
-    
+    # orig:
     frame = cv2.resize(
             array, (array.shape[0]//scaled, array.shape[1]//scaled), interpolation=cv2.INTER_AREA)
+    return frame
+    # is cv2 broken? I need to swap the dimensions
+    # frame = cv2.resize(
+    #         array, (array.shape[1]//scaled, array.shape[2]//scaled), interpolation=cv2.INTER_AREA)
     return frame
 
 def timestep_to_observations(timestep: dm_env.TimeStep) -> Mapping[str, Any]:

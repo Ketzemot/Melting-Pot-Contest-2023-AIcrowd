@@ -8,9 +8,14 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 def _downsample_multi_timestep(timestep: dm_env.TimeStep, scaled) -> dm_env.TimeStep:
+    # orig:
     return timestep._replace(
         observation=[{k: utils.downsample_observation(v, scaled) if k == 'RGB' else v for k, v in observation.items()
         } for observation in timestep.observation])
+    # for testing world rgb downsample:
+    # return timestep._replace(
+    #     observation=[{k: utils.downsample_observation(v, scaled) if k in ('RGB', 'WORLD.RGB') else v for k, v in observation.items()
+    #     } for observation in timestep.observation])
 
 def _downsample_multi_spec(spec, scaled):
     return dm_env.specs.Array(shape=(spec.shape[0]//scaled, spec.shape[1]//scaled, spec.shape[2]), dtype=spec.dtype)
@@ -37,5 +42,6 @@ class DownSamplingSubstrateWrapper(observables.ObservableLab2dWrapper):
 
     def observation_spec(self) -> Sequence[Mapping[str, Any]]:
         spec = super().observation_spec()
-        return [{k: _downsample_multi_spec(v, self._scaled) if k == 'RGB' else v for k, v in s.items()}
+        return [{k: _downsample_multi_spec(v, self._scaled) if k == 'RGB' else v for k, v in s.items()} # orig
+        # return [{k: _downsample_multi_spec(v, self._scaled) if k in ('RGB', 'WORLD.RGB') else v for k, v in s.items()} # for testing
         for s in spec]
